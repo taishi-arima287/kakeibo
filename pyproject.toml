@@ -1,0 +1,52 @@
+[project]
+name = "kakeibo"
+version = "0.1.0"
+description = "家計簿 CLI — モダン Python 学習用プロジェクト"
+readme = "README.md"
+authors = [
+    { name = "taishi-arima287", email = "taishi@arima-system.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.13.5",
+    "rich>=15.0.0",
+    "typer>=0.27.2",
+]
+
+[project.scripts]
+kakeibo = "kakeibo.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.8",
+]
+
+# ---------------------------------------------------------------------------
+# ruff: linter + formatter (black / isort / flake8 を1つで置き換える)
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort (import 並び替え)
+    "UP",       # pyupgrade (古い書き方を新しい構文に)
+    "B",        # flake8-bugbear (バグになりやすい書き方)
+    "SIM",      # flake8-simplify
+    "RUF",      # ruff 独自ルール
+]
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers"]
