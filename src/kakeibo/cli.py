@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from kakeibo.models import Category, Entry, Summary
-from kakeibo.storage import JsonStorage
+from kakeibo.storage import JsonStorage, Storage
 
 app = typer.Typer(help="家計簿 CLI", no_args_is_help=True)
 console = Console()
@@ -28,7 +28,7 @@ def main(ctx: typer.Context, file: FileOption = None) -> None:
     ctx.obj = JsonStorage(file)
 
 
-def _storage(ctx: typer.Context) -> JsonStorage:
+def _storage(ctx: typer.Context) -> Storage:
     return ctx.obj
 
 
@@ -78,10 +78,7 @@ def list_entries(
     month: Annotated[str | None, typer.Option("--month", help="YYYY-MM で絞り込み")] = None,
 ) -> None:
     """支出を一覧表示する。"""
-    entries = _storage(ctx).load()
-    if month:
-        entries = [e for e in entries if e.date.strftime("%Y-%m") == month]
-    entries.sort(key=lambda e: e.date)
+    entries = _storage(ctx).load(month)
 
     table = Table(title=f"支出一覧 {month or ''}".strip())
     table.add_column("ID", style="dim")
@@ -100,10 +97,7 @@ def summary(
     month: Annotated[str | None, typer.Option("--month", help="YYYY-MM で絞り込み")] = None,
 ) -> None:
     """カテゴリ別の合計を表示する。"""
-    entries = _storage(ctx).load()
-    if month:
-        entries = [e for e in entries if e.date.strftime("%Y-%m") == month]
-    s = Summary.from_entries(entries)
+    s = Summary.from_entries(_storage(ctx).load(month))
 
     table = Table(title=f"カテゴリ別集計 {month or ''}".strip())
     table.add_column("カテゴリ")
@@ -123,9 +117,13 @@ def delete(
     entry_id: Annotated[str, typer.Argument(help="ID (先頭数文字でOK)")],
 ) -> None:
     """支出を 1 件削除する。"""
-    deleted = _storage(ctx).delete(entry_id)
-    if deleted is None:
+    storage = _storage(ctx)
+    matched = storage.find_by_id_prefix(entry_id)
+    if len(matched) != 1:
         raise _fail(f"ID '{entry_id}' に一致するレコードが 1 件に定まりません")
+    deleted = storage.delete(matched[0].id)
+    if deleted is None:
+        raise _fail(f"ID '{entry_id}' のレコードは既に削除されています")
     console.print(f"[yellow]削除:[/] {deleted.date} {deleted.category} ¥{deleted.amount:,}")
 
 

@@ -21,16 +21,25 @@ class Category(StrEnum):
     OTHER = "other"
 
 
-class Entry(BaseModel):
-    """家計簿の 1 レコード。"""
+class EntryBase(BaseModel):
+    """Entry の ID 以外のフィールド。入力用スキーマと Entry で共有する。"""
 
-    id: UUID = Field(default_factory=uuid4)
     amount: int = Field(gt=0, description="金額 (円)。正の整数のみ")
     category: Category
     memo: str = ""
     # フィールド名 date が型名 date を隠して Pydantic が型を解決できなくなるため、
     # datetime モジュールは dt として import している
     date: dt.date = Field(default_factory=dt.date.today)
+
+
+class EntryCreate(EntryBase):
+    """新規作成時の入力。ID はサーバー側で採番するため受け付けない。"""
+
+
+class Entry(EntryBase):
+    """家計簿の 1 レコード。"""
+
+    id: UUID = Field(default_factory=uuid4)
 
 
 class Summary(BaseModel):

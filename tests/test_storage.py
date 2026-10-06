@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from uuid import uuid4
 
 from kakeibo.models import Category, Entry
 from kakeibo.storage import JsonStorage, default_path
@@ -23,7 +24,22 @@ def test_save_creates_parent_directories(tmp_path: Path) -> None:
 
 def test_save_and_load_roundtrip(storage: JsonStorage, entries: list[Entry]) -> None:
     storage.save(entries)
-    assert storage.load() == entries
+    assert storage.load() == sorted(entries, key=lambda e: e.date)
+
+
+def test_load_sorted_by_date(storage: JsonStorage, entries: list[Entry]) -> None:
+    storage.save(entries)
+    assert [e.date.isoformat() for e in storage.load()] == [
+        "2026-08-31",
+        "2026-09-01",
+        "2026-09-20",
+    ]
+
+
+def test_load_filters_by_month(storage: JsonStorage, entries: list[Entry]) -> None:
+    storage.save(entries)
+    assert [e.memo for e in storage.load("2026-08")] == ["コーヒー"]
+    assert storage.load("2025-01") == []
 
 
 def test_save_writes_readable_json(storage: JsonStorage, entries: list[Entry]) -> None:
@@ -42,26 +58,33 @@ def test_add_appends(storage: JsonStorage, entries: list[Entry]) -> None:
     storage.save(entries)
     new = Entry(amount=300, category=Category.TRANSPORT)
     assert storage.add(new) is new
-    assert storage.load() == [*entries, new]
+    assert storage.get(new.id) == new
+    assert len(storage.load()) == 4
 
 
-def test_delete_by_prefix(storage: JsonStorage, entries: list[Entry]) -> None:
+def test_get(storage: JsonStorage, entries: list[Entry]) -> None:
+    storage.save(entries)
+    assert storage.get(entries[1].id) == entries[1]
+    assert storage.get(uuid4()) is None
+
+
+def test_find_by_id_prefix(storage: JsonStorage, entries: list[Entry]) -> None:
+    storage.save(entries)
+    assert storage.find_by_id_prefix(str(entries[0].id)[:8]) == [entries[0]]
+    assert storage.find_by_id_prefix("no-such-id") == []
+    # 空文字は全件に前方一致する
+    assert len(storage.find_by_id_prefix("")) == 3
+
+
+def test_delete(storage: JsonStorage, entries: list[Entry]) -> None:
     storage.save(entries)
     target = entries[1]
-    deleted = storage.delete(str(target.id)[:8])
-    assert deleted == target
-    assert target not in storage.load()
+    assert storage.delete(target.id) == target
+    assert storage.get(target.id) is None
     assert len(storage.load()) == 2
 
 
-def test_delete_returns_none_when_no_match(storage: JsonStorage, entries: list[Entry]) -> None:
+def test_delete_returns_none_when_not_found(storage: JsonStorage, entries: list[Entry]) -> None:
     storage.save(entries)
-    assert storage.delete("no-such-id") is None
-    assert len(storage.load()) == 3
-
-
-def test_delete_returns_none_when_ambiguous(storage: JsonStorage, entries: list[Entry]) -> None:
-    storage.save(entries)
-    # 空文字は全件に前方一致するので 1 件に定まらない
-    assert storage.delete("") is None
+    assert storage.delete(uuid4()) is None
     assert len(storage.load()) == 3

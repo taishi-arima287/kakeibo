@@ -7,7 +7,7 @@
 | Phase | 内容 | 状態 |
 |---|---|---|
 | 1 | CLI (Typer + Rich + Pydantic) | ✅ 完了 |
-| 2 | FastAPI + SQLModel で API 化 | 未着手 |
+| 2 | FastAPI + SQLModel で API 化 | 🚧 進行中 (API 完了 / SQLModel 未着手) |
 | 3 | Polars + Streamlit で可視化 | 未着手 |
 | 4 | Claude API 連携 | 未着手 |
 
@@ -61,6 +61,29 @@ uv run kakeibo delete 80e3945d   # list に表示される ID の先頭数文字
 
 一致するレコードが 1 件に定まらない場合はエラーになる。
 
+## Web API
+
+```bash
+uv run fastapi dev    # 開発サーバー (自動リロード) を http://127.0.0.1:8000 で起動
+```
+
+`http://127.0.0.1:8000/docs` で Swagger UI から試せる。
+
+| メソッド | パス | 内容 |
+|---|---|---|
+| `POST` | `/api/v1/entries` | 支出を追加 (201) |
+| `GET` | `/api/v1/entries?month=YYYY-MM` | 一覧 (日付順) |
+| `GET` | `/api/v1/entries/{id}` | 1 件取得 (なければ 404) |
+| `DELETE` | `/api/v1/entries/{id}` | 削除 (204 / なければ 404) |
+| `GET` | `/api/v1/entries/summary?month=YYYY-MM` | カテゴリ別集計 |
+
+```bash
+curl -X POST localhost:8000/api/v1/entries -H 'content-type: application/json' \
+  -d '{"amount": 1200, "category": "food", "memo": "ランチ"}'
+```
+
+CLI と同じデータファイルを使う (`KAKEIBO_FILE` で変更可)。
+
 ## データファイル
 
 デフォルトでは `~/.kakeibo/entries.json` に保存する。変更したい場合は `--file` オプションか環境変数 `KAKEIBO_FILE` で指定する。
@@ -85,11 +108,12 @@ uv run ruff format .          # フォーマット
 ```
 src/kakeibo/
 ├── models.py    # ドメインモデル (Entry / Category / Summary)。I/O はしない
-├── storage.py   # 永続化 (JsonStorage)。CLI のことは知らない
-└── cli.py       # Typer のコマンド定義と Rich での表示
+├── storage.py   # 永続化 (Storage Protocol / JsonStorage)。CLI / API のことは知らない
+├── cli.py       # Typer のコマンド定義と Rich での表示
+└── api.py       # FastAPI のエンドポイント定義
 tests/
-├── conftest.py  # 共通フィクスチャ
+├── conftest.py  # 共通フィクスチャ (storage / runner / client など)
 └── test_*.py    # src/kakeibo/*.py と 1:1 対応
 ```
 
-依存の向きは `cli → storage → models` の一方向。Phase 2 で `storage.py` を SQLModel に差し替えても `cli.py` は変更不要になるよう分けている。
+依存の向きは `cli / api → storage → models` の一方向。Phase 2 で `storage.py` を SQLModel に差し替えても `cli.py` / `api.py` は変更不要になるよう分けている。

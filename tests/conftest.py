@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
+from kakeibo.api import app, get_storage
 from kakeibo.models import Category, Entry
 from kakeibo.storage import JsonStorage
 
@@ -36,3 +39,12 @@ def entries() -> list[Entry]:
 @pytest.fixture
 def runner() -> CliRunner:
     return CliRunner()
+
+
+@pytest.fixture
+def client(storage: JsonStorage) -> Iterator[TestClient]:
+    """storage フィクスチャを使う API クライアント。"""
+    app.dependency_overrides[get_storage] = lambda: storage
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()
